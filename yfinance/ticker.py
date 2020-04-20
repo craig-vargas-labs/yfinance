@@ -194,3 +194,21 @@ class Ticker(TickerBase):
         if not self._expirations:
             self._download_options()
         return tuple(self._expirations.keys())
+
+    '''
+    CVAR
+    '''
+    @property
+    def last(self):
+        if self._need_last:
+            self._last = self.history('1d').iloc[-1]
+            self._need_last = False
+        return self._last
+
+    @property
+    def pre_covid_high(self):
+        if self._need_pre_covid_high:
+            self._pre_covid_high = self.history(
+                start='2020-02-10', end='2020-02-22').mean()  # ['Close']
+            self._need_pre_covid_high = False
+        return self._pre_covid_high

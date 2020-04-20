@@ -72,6 +72,11 @@ class TickerBase():
             "yearly": utils.empty_df(),
             "quarterly": utils.empty_df()}
 
+        self._last = utils.empty_df()  # Going to store a df
+        self._need_last = True
+        self._pre_covid_high = utils.empty_df()
+        self._need_pre_covid_high = True
+
     def history(self, period="1mo", interval="1d",
                 start=None, end=None, prepost=False, actions=True,
                 auto_adjust=True, back_adjust=False,
@@ -249,7 +254,7 @@ class TickerBase():
 
     def _get_fundamentals(self, kind=None, proxy=None):
         def cleanup(data):
-            df = _pd.DataFrame(data).drop(columns=['maxAge'])
+            df = _pd.DataFrame(data).drop(columns=['maxAge'], errors='ignore')
             for col in df.columns:
                 df[col] = _np.where(
                     df[col].astype(str) == '-', _np.nan, df[col])
@@ -281,9 +286,16 @@ class TickerBase():
 
         # holders
         url = "{}/{}/holders".format(self._scrape_url, self.ticker)
-        holders = _pd.read_html(url)
-        self._major_holders = holders[0]
-        self._institutional_holders = holders[1]
+        # CVAR: added try/except (Might have been getting errors because Yahoo is down)
+        holders = []
+        try:
+            holders = _pd.read_html(url)
+        except:
+            print('Exception: could not get "holders" for {}'.format(self.ticker))
+        self._major_holders = holders[0] if len(
+            holders) > 0 else _pd.DataFrame()
+        self._institutional_holders = holders[1] if len(
+            holders) > 1 else _pd.DataFrame()
         if 'Date Reported' in self._institutional_holders:
             self._institutional_holders['Date Reported'] = _pd.to_datetime(
                 self._institutional_holders['Date Reported'])
@@ -351,7 +363,30 @@ class TickerBase():
             pass
 
         # get fundamentals
+        url = "{}/{}".format(self._scrape_url, self.ticker)
         data = utils.get_json(url+'/financials', proxy)
+
+        # import json
+        # print('\nCVAR: fundamentals Data...\n\n', json.dumps(data))
+
+        # # CVAR try
+        # try:
+        #     # generic patterns
+        #     for key in (
+        #         (self._cashflow, 'cashflowStatement', 'cashflowStatements'),
+        #         (self._balancesheet, 'balanceSheet', 'balanceSheetStatements'),
+        #         (self._financials, 'incomeStatement', 'incomeStatementHistory')
+        #     ):
+
+        #         item = key[1] + 'History'
+        #         if isinstance(data.get(item), dict):
+        #             key[0]['yearly'] = cleanup(data[item][key[2]])
+
+        #         item = key[1]+'HistoryQuarterly'
+        #         if isinstance(data.get(item), dict):
+        #             key[0]['quarterly'] = cleanup(data[item][key[2]])
+        # except:
+        #     print('CVAR: error cleaning {}'.format(self.ticker))
 
         # generic patterns
         for key in (
@@ -514,3 +549,9 @@ class TickerBase():
 
         self._isin = data.split(search_str)[1].split('"')[0].split('|')[0]
         return self._isin
+
+    # def get_last(self)
+
+    #     if not self._last:
+    #         self._last = self.history('1d').iloc[-1]
+    #     return self._last

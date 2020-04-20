@@ -43,6 +43,7 @@ def empty_df(index=[]):
 
 
 def get_json(url, proxy=None):
+    # print('\n\nCVAR: Requesting from url:', url, '\n\n')
     html = _requests.get(url=url, proxies=proxy).text
 
     if "QuoteSummaryStore" not in html:
